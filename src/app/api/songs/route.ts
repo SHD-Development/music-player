@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
 import { writeFile } from 'fs/promises'
 import path from 'path'
+import { put } from "@vercel/blob";
 
 const prisma = new PrismaClient()
 
@@ -18,19 +19,22 @@ export async function POST(request: Request) {
     if (!file || !title || !artist || !category) {
       return NextResponse.json({ error: '請求不完整' }, { status: 400 })
     }
-
+    
     const buffer = Buffer.from(await file.arrayBuffer())
     const filename = Date.now() + '-' + file.name.replace(/\s+/g, '-')
-    const filePath = path.join(process.cwd(), 'public', 'uploads', filename)
-    await writeFile(filePath, buffer)
+    const result = await put('uploads/'+filename, buffer, { access: 'public' });
+    const filePath = result.url;
+    // const filePath = path.join(process.cwd(), 'public', 'uploads', filename)
+    // await writeFile(filePath, buffer)
 
-    let lyricsPath = null
+  let lyricsPath = null
     if (lrcFile) {
       const lrcBuffer = Buffer.from(await lrcFile.arrayBuffer())
       const lrcFilename = Date.now() + '-' + lrcFile.name.replace(/\s+/g, '-')
-      const lrcFilePath = path.join(process.cwd(), 'public', 'lyrics', lrcFilename)
-      await writeFile(lrcFilePath, lrcBuffer)
-      lyricsPath = `/lyrics/${lrcFilename}`
+      // const lrcFilePath = path.join(process.cwd(), 'public', 'lyrics', lrcFilename)
+      // await writeFile(lrcFilePath, lrcBuffer)
+      const result2 = await put('lyrics/'+lrcFilename, lrcBuffer, { access: 'public' });
+      lyricsPath = result2.url;
     }
 
     const song = await prisma.song.create({
@@ -38,7 +42,7 @@ export async function POST(request: Request) {
         title,
         artist,
         category,
-        filePath: `/uploads/${filename}`,
+        filePath,
         lyricsPath,
         staticLyrics
       }
